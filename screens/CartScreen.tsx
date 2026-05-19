@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
 import { supabase } from '../lib/supabase';
-import * as Notifications from 'expo-notifications';
-import * as Localization from 'expo-localization';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -21,9 +19,8 @@ export default function CartScreen() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isDark, setIsDark] = useState(true);
   const [currency, setCurrency] = useState('EGP');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const navigation = useNavigation();
+  const [exchangeRate, setExchangeRate] = useState(1);
 
   useEffect(() => {
     getCartItems();
@@ -48,6 +45,10 @@ export default function CartScreen() {
     }
   
     const productIds = cartData.map((item) => item.product_id);
+    if (productIds.length === 0) {
+      setCartItems([]);
+      return;
+    }
   
     const { data: productsData, error: productsError } = await supabase
       .from('products')
@@ -107,65 +108,12 @@ export default function CartScreen() {
     else getCartItems();
   }
 
-  async function checkout() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-  
-    if (!user || cartItems.length === 0) return;
-  
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert([{ user_id: user.id, total, status: 'paid' }])
-      .select()
-      .single();
-  
-    if (orderError) {
-      console.log(orderError.message);
-      return;
-    }
-  
-    const orderItems = cartItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.products?.id,
-      quantity: item.quantity,
-      price: item.products?.price || 0,
-    }));
-  
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
-  
-    if (itemsError) {
-      console.log(itemsError.message);
-      return;
-    }
-  
-    await supabase.from('cart').delete().eq('user_id', user.id);
-  
-    alert('Order placed successfully ✨');
-    (navigation as any).navigate('Receipt', {
-      orderId: order.id,
-      total: formatPrice(total),
-    });
-    if (notificationsEnabled) {
-      await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Order Confirmed 🛍️',
-        body: 'Your order has been placed successfully!',
-      },
-      trigger: null,
-    });
+  function formatPrice(price: number) {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+    }).format(price * exchangeRate);
   }
-    getCartItems();
-  }
-  
-function formatPrice(price: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-  }).format(price);
-}
 async function getUserSettings() {
   const {
     data: { user },
@@ -175,9 +123,7 @@ async function getUserSettings() {
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select(
-      'dark_mode, currency, notifications_enabled, haptics_enabled'
-    )
+    .select('dark_mode, currency')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -189,8 +135,23 @@ async function getUserSettings() {
   if (data) {
     setIsDark(data.dark_mode);
     setCurrency(data.currency);
-    setNotificationsEnabled(data.notifications_enabled);
-    setHapticsEnabled(data.haptics_enabled);
+    getExchangeRate(data.currency);
+  }
+}
+async function getExchangeRate(selectedCurrency: string) {
+  const { data, error } = await supabase
+    .from('exchange_rates')
+    .select('rate')
+    .eq('target_currency', selectedCurrency)
+    .maybeSingle();
+
+  if (error) {
+    console.log(error.message);
+    return;
+  }
+
+  if (data) {
+    setExchangeRate(data.rate);
   }
 }
 
@@ -236,7 +197,16 @@ async function getUserSettings() {
 
       <View style={styles.footer}>
       <Text style={styles.total}>Total: {formatPrice(total)}</Text>
-        <TouchableOpacity style={styles.checkout} onPress={checkout}>
+      <TouchableOpacity
+  disabled={cartItems.length === 0}
+  style={[styles.checkout, cartItems.length === 0 && styles.checkoutDisabled]}
+  onPress={() =>
+    (navigation as any).navigate('Checkout', {
+      cartItems,
+      total,
+    })
+  }
+>
           <Text style={styles.checkoutText}>Checkout</Text>
         </TouchableOpacity>
       </View>
@@ -320,6 +290,9 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 14,
     alignItems: 'center',
+  },
+  checkoutDisabled: {
+    opacity: 0.5,
   },
   checkoutText: {
     color: '#050505',

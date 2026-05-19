@@ -9,6 +9,7 @@ export default function SettingsScreen() {
   const [darkMode, setDarkMode] = useState(true);
   const [currency, setCurrency] = useState('EGP');
   const [country, setCountry] = useState('Egypt');
+  const [language, setLanguage] = useState('English');
 
   useEffect(() => {
     loadSettings();
@@ -51,6 +52,7 @@ export default function SettingsScreen() {
     setDarkMode(data.dark_mode);
     setCurrency(data.currency);
     setCountry(data.country);
+    setLanguage(data.language || 'English');
   }
 
   async function updateSetting(field: string, value: any) {
@@ -123,6 +125,22 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
       ))}
+      <Text style={[styles.section, { color: darkMode ? '#E8D8B0' : '#111' }]}>Language</Text>
+
+{['English', 'French', 'Spanish'].map((item) => (
+  <TouchableOpacity
+    key={item}
+    style={[styles.option, language === item && styles.activeOption]}
+    onPress={() => {
+      setLanguage(item);
+      updateSetting('language', item);
+    }}
+  >
+    <Text style={[styles.optionText, language === item && styles.activeOptionText]}>
+      {item}
+    </Text>
+  </TouchableOpacity>
+))}
 
       <Text style={[styles.section, { color: darkMode ? '#E8D8B0' : '#111' }]}>Country</Text>
       {['Egypt', 'USA', 'France'].map((item) => (

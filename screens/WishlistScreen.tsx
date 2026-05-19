@@ -27,6 +27,7 @@ export default function WishlistScreen() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [isDark, setIsDark] = useState(true);
   const [currency, setCurrency] = useState('EGP');
+  const [exchangeRate, setExchangeRate] = useState(1);
 
   useEffect(() => {
     getWishlist();
@@ -104,6 +105,23 @@ export default function WishlistScreen() {
     if (data) {
       setIsDark(data.dark_mode);
       setCurrency(data.currency);
+      getExchangeRate(data.currency);
+    }
+  }
+  async function getExchangeRate(selectedCurrency: string) {
+    const { data, error } = await supabase
+      .from('exchange_rates')
+      .select('rate')
+      .eq('target_currency', selectedCurrency)
+      .maybeSingle();
+  
+    if (error) {
+      console.log(error.message);
+      return;
+    }
+  
+    if (data) {
+      setExchangeRate(data.rate);
     }
   }
   
@@ -111,7 +129,7 @@ export default function WishlistScreen() {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
-    }).format(price);
+    }).format(price * exchangeRate);
   }
 
   return (

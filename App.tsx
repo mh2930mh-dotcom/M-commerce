@@ -17,6 +17,7 @@ import AddProductScreen from './screens/AddProductScreen';
 import ReceiptScreen from './screens/ReceiptScreen';
 import StoreLocatorScreen from './screens/StoreLocatorScreen';
 import ProductDetailsScreen from './screens/ProductDetailsScreen';
+import CheckoutScreen from './screens/CheckoutScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -63,6 +64,7 @@ export default function App() {
     <NavigationContainer linking={linking as any}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
+        <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Cart" component={CartScreen} />
         <Stack.Screen name="Orders" component={OrderHistoryScreen} />
         <Stack.Screen name="Scanner" component={BarcodeScannerScreen} />
@@ -71,6 +73,7 @@ export default function App() {
         <Stack.Screen name="Receipt" component={ReceiptScreen} />
         <Stack.Screen name="StoreLocator" component={StoreLocatorScreen} />
         <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
+        <Stack.Screen name="Checkout" component={CheckoutScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

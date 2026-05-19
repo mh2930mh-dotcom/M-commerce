@@ -5,10 +5,13 @@ import { supabase } from '../lib/supabase';
 export default function ProductDetailsScreen({ route }: any) {
   const { productId } = route.params || {};
   const [product, setProduct] = useState<any>(null);
+  const [currency, setCurrency] = useState('EGP');
+const [exchangeRate, setExchangeRate] = useState(1);
 
-  useEffect(() => {
-    getProduct();
-  }, []);
+useEffect(() => {
+  getProduct();
+  getUserSettings();
+}, []);
 
   async function getProduct() {
     const { data } = await supabase
@@ -18,6 +21,53 @@ export default function ProductDetailsScreen({ route }: any) {
       .single();
 
     setProduct(data);
+  }
+  async function getUserSettings() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+  
+    if (!user) return;
+  
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('currency')
+      .eq('user_id', user.id)
+      .maybeSingle();
+  
+    if (error) {
+      console.log(error.message);
+      return;
+    }
+  
+    if (data) {
+      setCurrency(data.currency);
+      getExchangeRate(data.currency);
+    }
+  }
+  
+  async function getExchangeRate(selectedCurrency: string) {
+    const { data, error } = await supabase
+      .from('exchange_rates')
+      .select('rate')
+      .eq('target_currency', selectedCurrency)
+      .maybeSingle();
+  
+    if (error) {
+      console.log(error.message);
+      return;
+    }
+  
+    if (data) {
+      setExchangeRate(data.rate);
+    }
+  }
+  
+  function formatPrice(price: number) {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+    }).format(price * exchangeRate);
   }
 
   if (!product) {
@@ -32,7 +82,7 @@ export default function ProductDetailsScreen({ route }: any) {
     <View style={styles.container}>
       <Image source={{ uri: product.image_url }} style={styles.image} />
       <Text style={styles.name}>{product.name}</Text>
-      <Text style={styles.price}>${product.price}</Text>
+      <Text style={styles.price}>{formatPrice(product.price)}</Text>
       <Text style={styles.desc}>{product.description}</Text>
     </View>
   );

@@ -39,6 +39,8 @@ export default function HomeScreen() {
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [currency, setCurrency] = useState('EGP');
   const [batteryLow, setBatteryLow] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState(1);
+  const [language, setLanguage] = useState('English');
 
   useEffect(() => {
     getProducts();
@@ -163,7 +165,7 @@ export default function HomeScreen() {
         if (hapticsEnabled) {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        alert('Quantity updated 🛒');
+        alert('Quantity updated');
         getCartQuantities();
       }
     } else {
@@ -181,7 +183,7 @@ export default function HomeScreen() {
         if (hapticsEnabled) {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        alert('Added to cart 🛒');
+        alert('Added to cart');
         getCartQuantities();
       }
     }
@@ -289,12 +291,12 @@ export default function HomeScreen() {
     setIsConnected(state.isConnected ?? false);
   }
 
-function formatPrice(price: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-  }).format(price);
-}
+  function formatPrice(price: number) {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+    }).format(price * exchangeRate);
+  }
 async function getUserSettings() {
   const {
     data: { user },
@@ -304,7 +306,7 @@ async function getUserSettings() {
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select('dark_mode, haptics_enabled, currency')
+    .select('dark_mode, haptics_enabled, currency, language')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -317,12 +319,53 @@ async function getUserSettings() {
     setIsDark(data.dark_mode);
     setHapticsEnabled(data.haptics_enabled);
     setCurrency(data.currency);
+    getExchangeRate(data.currency);
+    setLanguage(data.language || 'English');
   }
 }
 async function checkBattery() {
   const level = await Battery.getBatteryLevelAsync();
   setBatteryLow(level < 0.2);
 }
+async function getExchangeRate(selectedCurrency: string) {
+  const { data, error } = await supabase
+    .from('exchange_rates')
+    .select('rate')
+    .eq('target_currency', selectedCurrency)
+    .maybeSingle();
+
+  if (error) {
+    console.log(error.message);
+    return;
+  }
+
+  if (data) setExchangeRate(data.rate);
+}
+const t: any = {
+  English: {
+    newArrivals: 'New Arrivals',
+    search: 'Search products...',
+    addToCart: 'Add to Cart',
+    offline: 'You are offline',
+    battery: 'Battery Saver Mode Enabled',
+  },
+  French: {
+    newArrivals: 'Nouveautés',
+    search: 'Rechercher des produits...',
+    addToCart: 'Ajouter au panier',
+    offline: 'Vous êtes hors ligne',
+    battery: 'Mode économie de batterie activé',
+  },
+  Spanish: {
+    newArrivals: 'Novedades',
+    search: 'Buscar productos...',
+    addToCart: 'Añadir al carrito',
+    offline: 'Estás sin conexión',
+    battery: 'Modo ahorro de batería activado',
+  },
+};
+
+const text = t[language] || t.English;
 
   return (
     <View style= {[ styles.container,{ backgroundColor: isDark ? '#050505' : '#F8F5EF' }, ]}>
@@ -349,7 +392,7 @@ async function checkBattery() {
 </View>
 {!isConnected && (
   <View style={styles.offlineBanner}>
-    <Text style={styles.offlineText}>You are offline</Text>
+    <Text style={styles.offlineText}>{text.offline}</Text>
   </View>
 )}
 {batteryLow && (
@@ -361,12 +404,12 @@ async function checkBattery() {
       fontWeight: '700',
     }}
   >
-    Battery Saver Mode Enabled 🔋
+    {text.battery}
   </Text>
 )}
-<Text style={[ styles.subtitle,{ color: isDark ? '#E8D8B0' : '#111' },]}>New Arrivals</Text>
+<Text style={[ styles.subtitle,{ color: isDark ? '#E8D8B0' : '#111' },]}>{text.newArrivals}</Text>
       <TextInput
-  placeholder="Search products..."
+  placeholder={text.search}
   placeholderTextColor="#999"
   value={search}
   onChangeText={setSearch}
@@ -438,7 +481,7 @@ async function checkBattery() {
 ) : (
   <TouchableOpacity style={styles.button} onPress={() => addToCart(item.id)}>
     
-    <Text style={styles.buttonText}>Add to Cart</Text>
+    <Text style={styles.buttonText}>{text.addToCart}</Text>
   </TouchableOpacity>
 )}
           </TouchableOpacity>
